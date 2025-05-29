@@ -75,29 +75,36 @@ function calcMarge(pvHT, paHT) {
 }
 
 // ─── Met à jour le stock via l’API proxy ───────────────────────────────────
-async function updateStock(prestaId, qty, currentStock, isCombination, onSuccess) {
+const updateStock = async (reference, newStock) => {
   try {
-    const res  = await fetch("http://localhost:4000/api/update-stock", {
-      method:  "POST",
+    const response = await fetch("http://localhost:4000/api/update-product", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ id: prestaId, quantity: qty, currentStock, isCombination })
+      body: JSON.stringify({
+        reference: reference,
+        stock: newStock
+      })
     });
-    const text = await res.text();
-    if (!res.ok) {
-      alert(`❌ MAJ stock échouée (${res.status})\n${text}`);
-    } else {
-      alert(`✅ MAJ stock OK\n${text}`);
-      onSuccess(currentStock + qty);
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Erreur lors de la mise à jour du stock');
     }
-  } catch (e) {
-    alert(`❌ Erreur réseau: ${e.message}`);
+
+    alert(`✅ Stock mis à jour : ${data.stock} pour ${reference}`);
+  } catch (err) {
+    alert(`❌ Erreur de mise à jour stock : ${err.message}`);
   }
-}
+};
+
 
 // ─── Met à jour le prix d’achat (wholesale_price) via l’API proxy ──────────
 async function updatePrice(reference, newPrice, onSuccess) {
   try {
-    const res  = await fetch("http://localhost:4000/api/update-price", {
+// const debugUrl = `https://besancon-archerie.fr/boutique/modules/stockfix/update.php?token=XmvuvrkWBse9ENzYc-OCOU7eUKYVVkjU37JCjLUcyn0&reference=${reference}&wholesale=${newPrice}`;
+// alert("🔍 Appel effectué :\\n" + debugUrl);
+
+    const res  = await fetch("http://localhost:4000/api/update-product", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ reference, wholesale_price: newPrice })
@@ -211,17 +218,8 @@ export default function CommandeView() {
                     className="bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
                     onClick={() =>
                       updateStock(
-                        p.prestaId,
-                        p.quantite,
-                        p.stock,
-                        p.isCombination,
-                        newStock => {
-                          setProduits(prev =>
-                            prev.map((x, j) =>
-                              j === i ? { ...x, stock: newStock } : x
-                            )
-                          );
-                        }
+                        p.reference,
+                        p.quantite
                       )
                     }
                   >
