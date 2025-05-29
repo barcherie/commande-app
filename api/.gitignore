@@ -1,0 +1,16 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React build
+build/
+dist/
+
+# API server
+/api/node_modules/
+
+# éditeurs / OS
+.DS_Store
+.env
