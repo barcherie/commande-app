@@ -17,53 +17,41 @@ function parseXMLToObject(xmlString, tag) {
   };
 }
 
-// ─── Récupère un produit ou une combinaison depuis l’API proxy ─────────────
+// ─── Récupère un produit ou une combinaison depuis query.php ───────────────
 async function fetchProductOrCombination(reference) {
-  const safeFetchText = async url => {
-    try {
-      const res = await fetch(url);
-      return res.ok ? await res.text() : null;
-    } catch {
-      return null;
+  try {
+    const res = await fetch(`http://localhost:4000/api/product/${encodeURIComponent(reference)}`);
+    const data = await res.json();
+
+    if (!data.found) {
+      return {
+        prestaId: null,
+        isCombination: false,
+        purchasePrice: 0,
+        salePrice: 0,
+        stock: 0
+      };
     }
-  };
 
-  // 1) Essayer comme product
-  let xml = await safeFetchText(`http://localhost:4000/api/product/${encodeURIComponent(reference)}`);
-  let p   = parseXMLToObject(xml, "product");
-  if (p?.id) {
     return {
-      prestaId:      p.id,
+      prestaId: data.is_combination ? data.id_product_attribute : data.id_product,
+      isCombination: data.is_combination,
+      purchasePrice: data.wholesale_price,
+      salePrice: data.price,
+      stock: data.stock
+    };
+  } catch (err) {
+    console.error("❌ Erreur API :", err);
+    return {
+      prestaId: null,
       isCombination: false,
-      purchasePrice: p.wholesale_price,
-      salePrice:     p.price,
-      stock:         p.quantity
+      purchasePrice: 0,
+      salePrice: 0,
+      stock: 0
     };
   }
-
-  // 2) Essayer comme combination
-  xml = await safeFetchText(`http://localhost:4000/api/combination/${encodeURIComponent(reference)}`);
-  let c = parseXMLToObject(xml, "combination");
-  if (c?.id) {
-    const parentXml = await safeFetchText(`http://localhost:4000/api/combination-full/${encodeURIComponent(reference)}`);
-    const pr        = parseXMLToObject(parentXml, "product") || { wholesale_price: 0, price: 0 };
-    return {
-      prestaId:      c.id,
-      isCombination: true,
-      purchasePrice: pr.wholesale_price,
-      salePrice:     pr.price,
-      stock:         c.quantity
-    };
-  }
-
-  return {
-    prestaId:      null,
-    isCombination: false,
-    purchasePrice: 0,
-    salePrice:     0,
-    stock:         0
-  };
 }
+
 
 // ─── Calcule le taux de marge brute (%) ────────────────────────────────────
 function calcMarge(pvHT, paHT) {
@@ -136,8 +124,10 @@ export default function CommandeView() {
         const brand     = row[brandKey] ?? "";
         const prixCSV   = parseFloat(row[prixKey] || "0");
         const quantite  = parseInt(row[qteKey]  || "0", 10);
-        console.log("🧪 Row CSV enrichie :", row);
+        
         const api = await fetchProductOrCombination(reference);
+        console.log("🔍 Référence API :", reference);
+        console.log("📦 Données API retournées :", api);
         return {
           reference,
           titre,
