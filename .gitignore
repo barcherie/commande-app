@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+
+# Build output
+/build
+/dist
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+/coverage
+
+# Environment variables
+.env
+.env.*.local
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Optional cache
+.cache
+.next
+out/
+
+# Mac system files
+*.DS_Store
+
+# Local React Native files (if mobile part)
+.expo/
+*.expo
+
+# Optional: lockfiles (si vous ne voulez pas les versionner)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
