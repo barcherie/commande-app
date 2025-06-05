@@ -45,7 +45,6 @@ async function fetchProductOrCombination(reference) {
   xml = await safeFetchText(`http://localhost:4000/api/combination/${encodeURIComponent(reference)}`);
   let c = parseXMLToObject(xml, "combination");
   if (c?.id) {
-    // récupérer parent pour prix
     const parentXml = await safeFetchText(`http://localhost:4000/api/combination-full/${encodeURIComponent(reference)}`);
     const pr        = parseXMLToObject(parentXml, "product") || { wholesale_price: 0, price: 0 };
     return {
@@ -57,7 +56,6 @@ async function fetchProductOrCombination(reference) {
     };
   }
 
-  // 3) Rien trouvé → fallback
   return {
     prestaId:      null,
     isCombination: false,
@@ -74,58 +72,42 @@ function calcMarge(pvHT, paHT) {
     : "–";
 }
 
-// ─── Met à jour le stock via l’API proxy ───────────────────────────────────
-const updateStock = async (reference, newStock) => {
+// ─── Met à jour le stock + prix achat (produit parent si combination) ──────
+const updateStock = async (reference, newStock, newPrice, isCombination) => {
   try {
+    const payload = isCombination
+      ? { reference, stock: newStock }
+      : { reference, stock: newStock, wholesale_price: newPrice };
+
+    if (isCombination) {
+      await fetch("http://localhost:4000/api/update-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference, wholesale_price: newPrice })
+      });
+    }
+
     const response = await fetch("http://localhost:4000/api/update-product", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reference: reference,
-        stock: newStock
-      })
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || 'Erreur lors de la mise à jour du stock');
+      throw new Error(data.error || 'Erreur lors de la mise à jour');
     }
 
-    alert(`✅ Stock mis à jour : ${data.stock} pour ${reference}`);
+    alert(`✅ Stock et prix mis à jour pour ${reference}`);
   } catch (err) {
-    alert(`❌ Erreur de mise à jour stock : ${err.message}`);
+    alert(`❌ Erreur de mise à jour : ${err.message}`);
   }
 };
-
-
-// ─── Met à jour le prix d’achat (wholesale_price) via l’API proxy ──────────
-async function updatePrice(reference, newPrice, onSuccess) {
-  try {
-// const debugUrl = `https://besancon-archerie.fr/boutique/modules/stockfix/update.php?token=XmvuvrkWBse9ENzYc-OCOU7eUKYVVkjU37JCjLUcyn0&reference=${reference}&wholesale=${newPrice}`;
-// alert("🔍 Appel effectué :\\n" + debugUrl);
-
-    const res  = await fetch("http://localhost:4000/api/update-product", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ reference, wholesale_price: newPrice })
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      alert(`❌ MAJ prix échouée (${res.status})\n${text}`);
-    } else {
-      alert(`✅ MAJ prix OK\n${text}`);
-      onSuccess(newPrice);
-    }
-  } catch (e) {
-    alert(`❌ Erreur réseau: ${e.message}`);
-  }
-}
 
 // ─── Composant principal ───────────────────────────────────────────────────
 export default function CommandeView() {
   const [produits, setProduits] = useState([]);
 
-  // Handler pour éditer la Qté CSV en local
   const onChangeQuantite = (index, newQty) => {
     setProduits(prev =>
       prev.map((p, i) =>
@@ -134,11 +116,9 @@ export default function CommandeView() {
     );
   };
 
-  // Charge et enrichit les données CSV via l’API
   const enrichWithAPI = async (rows) => {
     if (!rows.length) return;
 
-    // Détection dynamique des colonnes CSV
     const headers = Object.keys(rows[0]);
     const detect = pattern =>
       headers.find(h => new RegExp(pattern, "i").test(h)) || "";
@@ -213,35 +193,19 @@ export default function CommandeView() {
                 <td className="px-4 py-2">{(p.purchasePrice ?? 0).toFixed(2)}</td>
                 <td className="px-4 py-2">{(p.salePrice     ?? 0).toFixed(2)}</td>
                 <td className="px-4 py-2">{p.tauxMarge}</td>
-                <td className="px-4 py-2 flex space-x-2">
+                <td className="px-4 py-2">
                   <button
                     className="bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
                     onClick={() =>
                       updateStock(
                         p.reference,
-                        p.quantite
-                      )
-                    }
-                  >
-                    MAJ Stock
-                  </button>
-                  <button
-                    className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
-                    onClick={() =>
-                      updatePrice(
-                        p.reference,
+                        p.quantite,
                         p.prixCSV,
-                        newPrice => {
-                          setProduits(prev =>
-                            prev.map((x, j) =>
-                              j === i ? { ...x, purchasePrice: newPrice } : x
-                            )
-                          );
-                        }
+                        p.isCombination
                       )
                     }
                   >
-                    MAJ Prix
+                    MAJ Stock + Prix
                   </button>
                 </td>
               </tr>
