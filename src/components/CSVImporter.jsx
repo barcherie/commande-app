@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { parseJVD } from '../parsers/jvdParser';
 import { parseSSA } from '../parsers/ssaParser';
+import { parseJVD } from '../parsers/jvdParser';
 
 export default function CSVImporter({ onDataLoaded }) {
   const [parserType, setParserType] = useState('ssa');
@@ -9,30 +9,21 @@ export default function CSVImporter({ onDataLoaded }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (parserType === 'jvd') {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const csvText = reader.result;
-        const produits = parseJVD(csvText).map(p => ({
-          reference: p.reference,
-          quantite: p.quantity,
-          prix: p.purchasePrice,
-        }));
+    const callback = (produits) => {
+      if (!produits.length) {
+        alert("Aucun produit valide trouvé dans le fichier.");
+      }
+      onDataLoaded(produits);
+    };
 
-        if (produits.length === 0) {
-          alert("Aucun produit JVD valide trouvé.");
-        }
-
-        onDataLoaded(produits);
-      };
-      reader.readAsText(file);
-    } else {
-      parseSSA(file, (produits) => {
-        if (produits.length === 0) {
-          alert("Aucun produit SSA valide trouvé.");
-        }
-        onDataLoaded(produits);
-      });
+    switch (parserType) {
+      case "jvd":
+        parseJVD(file, callback);
+        break;
+      case "ssa":
+      default:
+        parseSSA(file, callback);
+        break;
     }
   };
 

@@ -1,29 +1,39 @@
 // src/parsers/jvdParser.js
 
-export function parseJVD(csvText) {
-  const lines = csvText.trim().split("\n").slice(1); // ignorer l'en-tête
-  const rows = [];
+import Papa from "papaparse";
 
-  for (let line of lines) {
-    const cols = line
-      .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/) // gère les virgules entre guillemets
-      .map(c => c.replace(/^"|"$/g, '').trim());
+export function parseJVD(file, callback) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: function (results) {
+      const produits = results.data
+        .map((row) => {
+          const reference = row["Product"]?.trim();
+          const titre = row["Description"]?.trim();
+          const unit = row["Unit"]?.trim();
+          const price = parseFloat(row["Price"]?.replace(/[^\d,.-]/g, "").replace(",", ".")) || 0;
+          const quantite = parseInt(row["Amount"]) || 0;
+          const orderTotal = parseFloat(row["Order total"]?.replace(/[^\d,.-]/g, "").replace(",", ".")) || 0;
+          const invoiced = row["Invoiced"]?.trim();
+          const delivered = row["Delivered"]?.trim();
+          const remark = row["Remark"]?.trim();
 
-    const [ref, , , priceRaw, qtyRaw] = cols;
+          return {
+            reference,
+            titre,
+            unit,
+            prix: price,
+            quantite,
+            orderTotal,
+            invoiced,
+            delivered,
+            remark,
+          };
+        })
+        .filter((p) => p.reference && p.reference.includes("-") && !isNaN(p.prix));
 
-    if (!ref || !ref.includes("-")) continue; // ignorer remises/frais
-
-    const quantity = parseInt(qtyRaw, 10);
-    const purchasePrice = parseFloat(
-      priceRaw.replace(/[^\d,.-]/g, '').replace(",", ".")
-    );
-
-    rows.push({
-      reference: ref,
-      quantity,
-      purchasePrice,
-    });
-  }
-
-  return rows;
+      callback(produits);
+    },
+  });
 }

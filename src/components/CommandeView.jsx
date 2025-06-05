@@ -136,7 +136,7 @@ export default function CommandeView() {
         const brand     = row[brandKey] ?? "";
         const prixCSV   = parseFloat(row[prixKey] || "0");
         const quantite  = parseInt(row[qteKey]  || "0", 10);
-
+        console.log("🧪 Row CSV enrichie :", row);
         const api = await fetchProductOrCombination(reference);
         return {
           reference,
